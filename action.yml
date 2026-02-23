@@ -1,0 +1,37 @@
+name: 'Jira Release Sync'
+description: 'Sync GitHub Releases to Jira versions and update Fix Versions on linked issues'
+
+inputs:
+  jira_server:
+    description: 'Jira server URL (e.g., https://company.atlassian.net)'
+    required: true
+  jira_project:
+    description: 'Jira project key (e.g., PRJ)'
+    required: true
+  jira_user:
+    description: 'Jira API user email'
+    required: true
+  jira_token:
+    description: 'Jira API token'
+    required: true
+  tag_format:
+    description: 'Regex with capture group to extract version from tag (e.g., "myapp/v(.+)")'
+    required: false
+    default: ''
+  release_name_format:
+    description: 'Format string for Jira version name. Use {version} as placeholder.'
+    required: false
+    default: '{version}'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  env:
+    GITHUB_TOKEN: ${{ github.token }}
+    RELEASE_TAG: ${{ github.event.release.tag_name }}
+    INPUT_JIRA_SERVER: ${{ inputs.jira_server }}
+    INPUT_JIRA_PROJECT: ${{ inputs.jira_project }}
+    INPUT_JIRA_USER: ${{ inputs.jira_user }}
+    INPUT_JIRA_TOKEN: ${{ inputs.jira_token }}
+    INPUT_TAG_FORMAT: ${{ inputs.tag_format }}
+    INPUT_RELEASE_NAME_FORMAT: ${{ inputs.release_name_format }}
