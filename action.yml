@@ -14,6 +14,10 @@ inputs:
   jira_token:
     description: 'Jira API token'
     required: true
+  release_tag:
+    description: 'Release tag (e.g., v1.2.0). Auto-detected from release events; required when chaining from other workflows.'
+    required: false
+    default: ''
   tag_format:
     description: 'Regex with capture group to extract version from tag (e.g., "myapp/v(.+)")'
     required: false
@@ -28,7 +32,7 @@ runs:
   image: 'Dockerfile'
   env:
     GITHUB_TOKEN: ${{ github.token }}
-    RELEASE_TAG: ${{ github.event.release.tag_name }}
+    RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
     INPUT_JIRA_SERVER: ${{ inputs.jira_server }}
     INPUT_JIRA_PROJECT: ${{ inputs.jira_project }}
     INPUT_JIRA_USER: ${{ inputs.jira_user }}

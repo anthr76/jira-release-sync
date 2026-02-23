@@ -43,10 +43,30 @@ jobs:
 | `jira_project` | yes | — | Jira project key (e.g. `PRJ`) |
 | `jira_user` | yes | — | Jira API user email |
 | `jira_token` | yes | — | Jira API token |
+| `release_tag` | no | auto-detected | Release tag (e.g. `v1.2.0`). Required when chaining from non-release workflows. |
 | `tag_format` | no | `""` | Regex with capture group to extract version from tag |
 | `release_name_format` | no | `{version}` | Format string with `{version}` placeholder |
 
 `GITHUB_TOKEN` is provided automatically by GitHub Actions.
+
+### Chaining from a build workflow
+
+When semantic-release creates the release via `GITHUB_TOKEN`, the `release` event won't fire for other workflows. Chain the sync directly after semantic-release instead:
+
+```yaml
+sync-jira:
+  runs-on: ubuntu-latest
+  needs: semantic-release
+  if: needs.semantic-release.outputs.tag != ''
+  steps:
+    - uses: coreweave/jira-release-sync@v1
+      with:
+        release_tag: ${{ needs.semantic-release.outputs.tag }}
+        jira_server: https://company.atlassian.net
+        jira_project: PRJ
+        jira_user: ${{ secrets.JIRA_USER }}
+        jira_token: ${{ secrets.JIRA_TOKEN }}
+```
 
 ### Tag format examples
 
