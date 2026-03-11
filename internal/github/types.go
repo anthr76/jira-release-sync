@@ -26,5 +26,7 @@ type PullRequest struct {
 // Release represents a GitHub release.
 type Release struct {
 	TagName     string `json:"tag_name"`
+	Body        string `json:"body"`
 	PublishedAt string `json:"published_at"`
+	HTMLURL     string `json:"html_url"`
 }

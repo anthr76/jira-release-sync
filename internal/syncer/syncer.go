@@ -70,9 +70,9 @@ func (s *Syncer) Run(ctx context.Context) error {
 		s.logger.Info("collected Jira issue keys", "keys", jiraKeys)
 	}
 
-	startDate, releaseDate := s.resolveVersionDates(ctx, prevTag)
+	startDate, releaseDate, description := s.resolveVersionDates(ctx, prevTag)
 
-	versionName, err := s.ensureJiraVersion(ctx, releaseName, startDate, releaseDate)
+	versionName, err := s.ensureJiraVersion(ctx, releaseName, startDate, releaseDate, description)
 	if err != nil {
 		return fmt.Errorf("ensuring Jira version: %w", err)
 	}
@@ -115,10 +115,10 @@ func (s *Syncer) collectJiraKeys(ctx context.Context, commits []github.CommitEnt
 	return keys, nil
 }
 
-// resolveVersionDates returns the start date (previous release's published_at)
-// and release date (current release's published_at) as YYYY-MM-DD strings.
-// Either may be empty if the release cannot be fetched.
-func (s *Syncer) resolveVersionDates(ctx context.Context, prevTag string) (startDate, releaseDate string) {
+// resolveVersionDates returns the start date (previous release's published_at),
+// release date (current release's published_at), and a description built from
+// the current release body. Any value may be empty if the release cannot be fetched.
+func (s *Syncer) resolveVersionDates(ctx context.Context, prevTag string) (startDate, releaseDate, description string) {
 	if prevTag != "" {
 		prevRelease, err := s.gh.GetReleaseByTag(ctx, s.cfg.RepoOwner, s.cfg.RepoName, prevTag)
 		if err != nil {
@@ -132,12 +132,17 @@ func (s *Syncer) resolveVersionDates(ctx context.Context, prevTag string) (start
 	curRelease, err := s.gh.GetReleaseByTag(ctx, s.cfg.RepoOwner, s.cfg.RepoName, s.cfg.ReleaseTag)
 	if err != nil {
 		s.logger.Warn("could not fetch current release for release date", "tag", s.cfg.ReleaseTag, "error", err)
-	} else if d := toDateString(curRelease.PublishedAt); d != "" {
-		releaseDate = d
-		s.logger.Info("resolved version release date from current release", "releaseDate", releaseDate)
+	} else {
+		if d := toDateString(curRelease.PublishedAt); d != "" {
+			releaseDate = d
+			s.logger.Info("resolved version release date from current release", "releaseDate", releaseDate)
+		}
+		if curRelease.HTMLURL != "" {
+			description = curRelease.HTMLURL
+		}
 	}
 
-	return startDate, releaseDate
+	return startDate, releaseDate, description
 }
 
 // toDateString parses an ISO 8601 timestamp and returns the YYYY-MM-DD portion.
@@ -152,7 +157,7 @@ func toDateString(iso8601 string) string {
 	return t.Format("2006-01-02")
 }
 
-func (s *Syncer) ensureJiraVersion(ctx context.Context, releaseName, startDate, releaseDate string) (string, error) {
+func (s *Syncer) ensureJiraVersion(ctx context.Context, releaseName, startDate, releaseDate, description string) (string, error) {
 	versions, err := s.jiraC.GetProjectVersions(ctx, s.cfg.JiraProject)
 	if err != nil {
 		return "", fmt.Errorf("getting project versions: %w", err)
@@ -161,11 +166,19 @@ func (s *Syncer) ensureJiraVersion(ctx context.Context, releaseName, startDate, 
 	for _, v := range versions {
 		if v.Name == releaseName {
 			s.logger.Info("Jira version already exists", "name", releaseName, "id", v.ID)
+			if description != "" && v.Description != description {
+				if err := s.jiraC.UpdateVersion(ctx, v.ID, jira.UpdateVersionRequest{
+					Description: description,
+				}); err != nil {
+					s.logger.Warn("failed to update version description", "id", v.ID, "error", err)
+				} else {
+					s.logger.Info("updated version description", "id", v.ID)
+				}
+			}
 			return releaseName, nil
 		}
 	}
 
-	description := s.cfg.ReleaseBody
 	const maxDesc = 16384
 	if len(description) > maxDesc {
 		description = description[:maxDesc]

@@ -65,6 +65,27 @@ func (c *Client) CreateVersion(ctx context.Context, v CreateVersionRequest) (*Ve
 	return &created, nil
 }
 
+// UpdateVersion updates an existing version by ID.
+func (c *Client) UpdateVersion(ctx context.Context, versionID string, v UpdateVersionRequest) error {
+	url := fmt.Sprintf("%s/rest/api/3/version/%s", c.baseURL, versionID)
+
+	body, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	req, err := c.newRequest(ctx, http.MethodPut, url, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	if err := c.do(req, nil); err != nil {
+		return fmt.Errorf("updating version %s: %w", versionID, err)
+	}
+	return nil
+}
+
 // AddFixVersion adds a version to an issue's Fix Versions field.
 func (c *Client) AddFixVersion(ctx context.Context, issueKey, versionName string) error {
 	url := fmt.Sprintf("%s/rest/api/3/issue/%s", c.baseURL, issueKey)

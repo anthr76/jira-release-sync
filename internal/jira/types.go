@@ -20,6 +20,11 @@ type CreateVersionRequest struct {
 	ReleaseDate string `json:"releaseDate,omitempty"` // YYYY-MM-DD
 }
 
+// UpdateVersionRequest is the payload for updating a Jira version.
+type UpdateVersionRequest struct {
+	Description string `json:"description,omitempty"`
+}
+
 // IssueUpdateRequest is the payload for updating an issue's fix versions.
 type IssueUpdateRequest struct {
 	Update IssueUpdateFields `json:"update"`

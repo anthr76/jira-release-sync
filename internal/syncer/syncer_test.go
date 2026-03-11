@@ -55,7 +55,12 @@ func TestRun_FullWorkflow(t *testing.T) {
 	})
 
 	ghMux.HandleFunc("GET /repos/owner/repo/releases/tags/v1.1.0", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(github.Release{TagName: "v1.1.0", PublishedAt: "2025-02-20T14:30:00Z"})
+		json.NewEncoder(w).Encode(github.Release{
+			TagName:     "v1.1.0",
+			Body:        "## changelog\n- feat: something",
+			PublishedAt: "2025-02-20T14:30:00Z",
+			HTMLURL:     "https://github.com/owner/repo/releases/tag/v1.1.0",
+		})
 	})
 
 	ghSrv := httptest.NewServer(ghMux)
@@ -76,8 +81,8 @@ func TestRun_FullWorkflow(t *testing.T) {
 		if req.Project != "PRJ" {
 			t.Errorf("project = %q", req.Project)
 		}
-		if !strings.Contains(req.Description, "changelog") {
-			t.Errorf("description missing changelog content: %q", req.Description)
+		if req.Description != "https://github.com/owner/repo/releases/tag/v1.1.0" {
+			t.Errorf("description = %q, want GitHub release URL", req.Description)
 		}
 		if req.StartDate != "2025-01-15" {
 			t.Errorf("startDate = %q, want %q", req.StartDate, "2025-01-15")
@@ -156,7 +161,12 @@ func TestRun_ExistingVersion(t *testing.T) {
 	})
 
 	ghMux.HandleFunc("GET /repos/owner/repo/releases/tags/v2.0.0", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(github.Release{TagName: "v2.0.0", PublishedAt: "2025-06-01T00:00:00Z"})
+		json.NewEncoder(w).Encode(github.Release{
+			TagName:     "v2.0.0",
+			Body:        "## What's Changed\n- fix: stuff",
+			PublishedAt: "2025-06-01T00:00:00Z",
+			HTMLURL:     "https://github.com/owner/repo/releases/tag/v2.0.0",
+		})
 	})
 
 	ghSrv := httptest.NewServer(ghMux)
@@ -166,6 +176,17 @@ func TestRun_ExistingVersion(t *testing.T) {
 
 	jiraMux.HandleFunc("GET /rest/api/3/project/FOO/versions", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]jira.Version{{ID: "99", Name: "2.0.0"}})
+	})
+
+	versionUpdated := false
+	jiraMux.HandleFunc("PUT /rest/api/3/version/99", func(w http.ResponseWriter, r *http.Request) {
+		versionUpdated = true
+		var body map[string]string
+		json.NewDecoder(r.Body).Decode(&body)
+		if body["description"] != "https://github.com/owner/repo/releases/tag/v2.0.0" {
+			t.Errorf("description = %q, want GitHub release URL", body["description"])
+		}
+		w.WriteHeader(http.StatusOK)
 	})
 
 	jiraMux.HandleFunc("PUT /rest/api/3/issue/", func(w http.ResponseWriter, r *http.Request) {
@@ -190,6 +211,10 @@ func TestRun_ExistingVersion(t *testing.T) {
 
 	if err := s.Run(context.Background()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !versionUpdated {
+		t.Error("expected version description to be updated")
 	}
 }
 
@@ -455,7 +480,12 @@ func TestRun_FirstRelease(t *testing.T) {
 	})
 
 	ghMux.HandleFunc("GET /repos/o/r/releases/tags/v1.0.0", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(github.Release{TagName: "v1.0.0", PublishedAt: "2025-05-01T10:00:00Z"})
+		json.NewEncoder(w).Encode(github.Release{
+			TagName:     "v1.0.0",
+			Body:        "## First release\n- initial",
+			PublishedAt: "2025-05-01T10:00:00Z",
+			HTMLURL:     "https://github.com/o/r/releases/tag/v1.0.0",
+		})
 	})
 
 	ghSrv := httptest.NewServer(ghMux)
