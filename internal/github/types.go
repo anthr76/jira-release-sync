@@ -19,7 +19,7 @@ type CommitEntry struct {
 type PullRequest struct {
 	Number int    `json:"number"`
 	Body   string `json:"body"`
-	Merged bool   `json:"merged_at"`
+	MergedAt string `json:"merged_at"`
 	State  string `json:"state"`
 }
 
